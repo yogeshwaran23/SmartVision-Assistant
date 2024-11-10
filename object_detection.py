@@ -1,18 +1,10 @@
 import cv2
-import pyttsx3
-import speech_recognition as sr
 from ultralytics import YOLO
 import numpy as np
+import pyttsx3  # Replacing naturalreader with pyttsx3
 
-# Initialize the text-to-speech engine
+# Initialize pyttsx3 for text-to-speech
 engine = pyttsx3.init()
-
-# Set the voice to female
-voices = engine.getProperty('voices')
-for voice in voices:
-    if 'female' in voice.name.lower():  # Look for a female voice
-        engine.setProperty('voice', voice.id)
-        break
 
 # Load the YOLOv8 model
 model = YOLO('yolov8l.pt')
@@ -26,6 +18,7 @@ known_distance = 1.0  # Distance from camera to object for calibration (in meter
 known_width_pixels = 200  # Measured object width in pixels at the known distance
 focal_length = (known_width_pixels * known_distance) / real_object_width
 
+
 # Helper function to get direction based on bounding box position
 def get_direction(x1, x2, frame_width):
     object_center = (x1 + x2) / 2
@@ -36,24 +29,6 @@ def get_direction(x1, x2, frame_width):
     else:
         return "center"
 
-# Function to listen for an object query
-def listen_for_object_query():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Listening for an object query...")
-        recognizer.adjust_for_ambient_noise(source, duration=2)  # Increased noise adjustment time
-        try:
-            audio = recognizer.listen(source, timeout=8)  # Extended timeout duration
-            query = recognizer.recognize_google(audio).lower()
-            print(f"User asked: {query}")
-            return query
-        except sr.UnknownValueError:
-            print("Could not understand the query.")
-        except sr.RequestError:
-            print("Speech recognition service error.")
-        except sr.WaitTimeoutError:
-            print("Listening timed out.")
-    return None
 
 # Initialize variables to track announced objects and changes
 previous_objects = set()
@@ -106,19 +81,21 @@ while True:
     if unique_objects != previous_objects:
         object_list = ', '.join(unique_objects)
         announcement = f"Detected objects are: {object_list}."
-        engine.say(announcement)
+        engine.say(announcement)  # Speak with pyttsx3
         engine.runAndWait()
         print(announcement)
         previous_objects = unique_objects  # Update previous_objects
 
-    # Listen for a specific object query from the user
-    query = listen_for_object_query()
+    # Take input from the user in the console
+    query = input("Please enter your object query: ").lower()
+
     if query:
         # Check if the user wants to hear the object names again
         if "repeat objects" in query or "what objects" in query:
-            engine.say(f"Detected objects are: {object_list}.")
+            announcement = f"Detected objects are: {object_list}."
+            engine.say(announcement)  # Speak with pyttsx3
             engine.runAndWait()
-            print(f"Detected objects are: {object_list}.")
+            print(announcement)
             continue
 
         # Check if the user asked for a specific object
@@ -128,7 +105,7 @@ while True:
                 nearest_object = min(detected_objects[object_name], key=lambda x: x[0])
                 distance, direction = nearest_object
                 response = f"The {object_name} is {direction} and is {distance:.2f} meters away."
-                engine.say(response)
+                engine.say(response)  # Speak with pyttsx3
                 engine.runAndWait()
                 print(response)
                 break
