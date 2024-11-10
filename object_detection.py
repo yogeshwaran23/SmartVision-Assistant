@@ -2,12 +2,13 @@ import cv2
 from ultralytics import YOLO
 import numpy as np
 import pyttsx3  # Replacing naturalreader with pyttsx3
+import speech_recognition as sr
 
 # Initialize pyttsx3 for text-to-speech
 engine = pyttsx3.init()
 
 # Load the YOLOv8 model
-model = YOLO('yolov8l.pt')
+model = YOLO('yolov8l.pt')  # Ensure you have a compatible YOLO model file
 
 # Open a video capture for the webcam
 cap = cv2.VideoCapture(0)
@@ -86,13 +87,36 @@ while True:
         print(announcement)
         previous_objects = unique_objects  # Update previous_objects
 
-    # Take input from the user in the console
-    query = input("Please enter your object query: ").lower()
+    # Speech recognition to replace manual input
+    recognizer = sr.Recognizer()
+
+    # Record audio using the microphone
+    with sr.Microphone() as source:
+        print("Adjusting for ambient noise...")
+        recognizer.adjust_for_ambient_noise(source, duration=1)
+        print("Listening for your query...")
+
+        # Listen for a query (timeout set to 15 seconds)
+        try:
+            recorded_audio = recognizer.listen(source, timeout=15, phrase_time_limit=15)
+            print("Done recording")
+
+            # Try to recognize the audio
+            print("Recognizing the text...")
+            query = recognizer.recognize_google(recorded_audio, language="en-US")
+            print(f"Decoded Text: {query}")
+
+        except Exception as ex:
+            print("Error: ", ex)
+            query = ""  # No query if there's an error
 
     if query:
+        # NLP to check if the query contains object names
+        query_lower = query.lower()
+
         # Check if the user wants to hear the object names again
-        if "repeat objects" in query or "what objects" in query:
-            announcement = f"Detected objects are: {object_list}."
+        if "repeat objects" in query_lower or "what objects" in query_lower:
+            announcement = f"Detected objects are: {', '.join(unique_objects)}."
             engine.say(announcement)  # Speak with pyttsx3
             engine.runAndWait()
             print(announcement)
@@ -100,7 +124,7 @@ while True:
 
         # Check if the user asked for a specific object
         for object_name in detected_objects:
-            if object_name in query:
+            if object_name.lower() in query_lower:
                 # Find the nearest instance if multiple are detected
                 nearest_object = min(detected_objects[object_name], key=lambda x: x[0])
                 distance, direction = nearest_object
